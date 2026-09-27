@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Registrar producto - Lomax</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <strong>Catálogo Lomax</strong>
+    <nav><a href="index.html">Ver catálogo</a></nav>
+  </header>
+  <main>
+    <form id="formulario">
+      <label>Código *<input name="codigo" required /></label>
+      <label>Nombre *<input name="nombre" required /></label>
+      <label>Descripción<textarea name="descripcion" rows="3"></textarea></label>
+      <label>Precio *<input name="precio" type="number" step="0.01" min="0" required /></label>
+      <label>Categoría *
+        <select name="categoria_id" id="selectCategoria" required></select>
+      </label>
+
+      <label>Atributos (por ejemplo: conexión, pulgadas, resolución)</label>
+      <div id="atributos"></div>
+      <button type="button" id="agregarAtributo">+ agregar atributo</button>
+
+      <label>Fotografía (JPEG o PNG, máx. 5MB)<input type="file" id="imagen" accept="image/jpeg,image/png" /></label>
+
+      <button type="submit">Registrar producto</button>
+    </form>
+    <div id="mensaje"></div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    const contenedorAtributos = document.getElementById('atributos');
+
+    function agregarFilaAtributo() {
+      const fila = document.createElement('div');
+      fila.className = 'atributo-fila';
+      fila.innerHTML = '<input placeholder="clave (ej. pulgadas)" class="clave" /><input placeholder="valor" class="valor" />';
+      contenedorAtributos.appendChild(fila);
+    }
+    document.getElementById('agregarAtributo').addEventListener('click', agregarFilaAtributo);
+    agregarFilaAtributo();
+
+    async function cargarCategorias() {
+      const select = document.getElementById('selectCategoria');
+      try {
+        const categorias = await apiGet('/categorias');
+        select.innerHTML = categorias.map((c) => `<option value="${c.id}">${c.nombre}</option>`).join('');
+      } catch (err) {
+        select.innerHTML = '<option value="">(no se pudieron cargar)</option>';
+      }
+    }
+    cargarCategorias();
+
+    function mostrarMensaje(texto, tipo) {
+      document.getElementById('mensaje').innerHTML = `<div class="mensaje ${tipo}">${texto}</div>`;
+    }
+
+    document.getElementById('formulario').addEventListener('submit', async (evento) => {
+      evento.preventDefault();
+      const form = evento.target;
+
+      const atributos = {};
+      contenedorAtributos.querySelectorAll('.atributo-fila').forEach((fila) => {
+        const clave = fila.querySelector('.clave').value.trim();
+        const valor = fila.querySelector('.valor').value.trim();
+        if (clave) atributos[clave] = valor;
+      });
+
+      const cuerpo = {
+        codigo: form.codigo.value,
+        nombre: form.nombre.value,
+        descripcion: form.descripcion.value,
+        precio: Number(form.precio.value),
+        categoria_id: Number(form.categoria_id.value),
+        atributos,
+      };
+
+      try {
+        const creado = await apiPostJSON('/productos', cuerpo);
+        mostrarMensaje(`Producto creado (id ${creado.producto_id}, estado ${creado.estado}). Subiendo imagen…`, 'exito');
+
+        const archivo = document.getElementById('imagen').files[0];
+        if (archivo) {
+          const datosForm = new FormData();
+          datosForm.append('imagen', archivo);
+          const resultadoImagen = await apiPostForm(`/productos/${creado.producto_id}/imagen`, datosForm);
+          mostrarMensaje(
+            `Producto ${creado.producto_id}: imagen ${resultadoImagen.estado_imagen}, estado final ${resultadoImagen.estado_producto}.`,
+            resultadoImagen.estado_producto === 'PUBLICADO' ? 'exito' : 'error'
+          );
+        } else {
+          mostrarMensaje(`Producto ${creado.producto_id} quedó PENDIENTE: falta subir la fotografía.`, 'error');
+        }
+
+        form.reset();
+      } catch (err) {
+        mostrarMensaje(`Error (${err.status || '?'}): ${err.error || 'no se pudo registrar el producto'}`, 'error');
+      }
+    });
+  </script>
+</body>
+</html>

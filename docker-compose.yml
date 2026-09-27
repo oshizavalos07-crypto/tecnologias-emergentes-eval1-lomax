@@ -1,0 +1,76 @@
+services:
+  # Emulador local de AWS (S3, DynamoDB, Lambda) usado en la práctica.
+  floci:
+    image: floci/floci:latest
+    container_name: lomax-floci
+    ports:
+      - "4566:4566"
+    volumes:
+      - ./floci-data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - PERSISTENCE=1
+
+  # Representa RDS (MySQL) para esta primera versión local del stack.
+  mysql-rds:
+    image: mysql:8.0
+    container_name: lomax-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass
+      MYSQL_DATABASE: lomax
+      MYSQL_USER: lomax_user
+      MYSQL_PASSWORD: lomax_pass
+    ports:
+      - "3308:3306" # para inspeccionar la base desde tu PC (MySQL Workbench, VS Code, etc.)
+    volumes:
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot_pass"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    container_name: lomax-backend
+    depends_on:
+      mysql-rds:
+        condition: service_healthy
+      floci:
+        condition: service_started
+    environment:
+      DB_HOST: mysql-rds
+      DB_PORT: 3306
+      DB_USER: lomax_user
+      DB_PASSWORD: lomax_pass
+      DB_NAME: lomax
+      AWS_ENDPOINT_URL: http://floci:4566
+      AWS_REGION: us-east-1
+      AWS_ACCESS_KEY_ID: test
+      AWS_SECRET_ACCESS_KEY: test
+      BUCKET_ORIGINALES: lomax-originales
+      BUCKET_MINIATURAS: lomax-miniaturas
+      TABLA_ATRIBUTOS: ProductoAtributos
+      LAMBDA_MINIATURA: generar-miniatura
+    ports:
+      - "3000:3000" # útil para probar la API directo mientras desarrollas
+
+  frontend:
+    build: ./frontend
+    container_name: lomax-frontend
+
+  proxy:
+    image: nginx:alpine
+    container_name: lomax-proxy
+    depends_on:
+      - backend
+      - frontend
+    volumes:
+      - ./proxy/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8080:80" # <-- entra aquí en el navegador: http://localhost:8080
+
+volumes:
+  mysql-data:

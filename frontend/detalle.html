@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Detalle del producto - Lomax</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <strong>Catálogo Lomax</strong>
+    <nav><a href="index.html">Ver catálogo</a></nav>
+  </header>
+  <main id="contenido">Cargando…</main>
+
+  <script src="js/api.js"></script>
+  <script>
+    const idProducto = new URLSearchParams(window.location.search).get('id');
+
+    async function cargarDetalle() {
+      const contenido = document.getElementById('contenido');
+      if (!idProducto) {
+        contenido.innerHTML = '<p>No se indicó un producto.</p>';
+        return;
+      }
+      try {
+        const p = await apiGet(`/productos/${idProducto}`);
+        const filasAtributos = Object.entries(p.atributos || {})
+          .map(([clave, valor]) => `<li><strong>${clave}:</strong> ${valor}</li>`)
+          .join('');
+
+        contenido.innerHTML = `
+          <div class="card" style="max-width:420px">
+            <img src="/api/productos/${p.id}/imagen" alt="${p.nombre}" onerror="this.style.opacity=0.3" />
+            <div class="info">
+              <h2>${p.nombre}</h2>
+              <div class="categoria">${p.categoria} · código ${p.codigo}</div>
+              <p>${p.descripcion || ''}</p>
+              <div class="precio">Bs ${Number(p.precio).toFixed(2)}</div>
+              <p class="estado-${p.estado.toLowerCase()}">Estado: ${p.estado}</p>
+              <ul>${filasAtributos}</ul>
+            </div>
+          </div>`;
+      } catch (err) {
+        contenido.innerHTML = `<p>No se encontró el producto (${err.status || '?'}).</p>`;
+      }
+    }
+    cargarDetalle();
+  </script>
+</body>
+</html>

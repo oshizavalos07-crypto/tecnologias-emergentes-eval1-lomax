@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Catálogo Lomax</title>
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+  <header>
+    <strong>Catálogo Lomax</strong>
+    <nav><a href="registro.html">Registrar producto</a></nav>
+  </header>
+  <main>
+    <div id="mensaje"></div>
+    <div id="grid" class="grid">Cargando catálogo…</div>
+  </main>
+
+  <script src="js/api.js"></script>
+  <script>
+    async function cargarCatalogo() {
+      const grid = document.getElementById('grid');
+      try {
+        const productos = await apiGet('/productos');
+        if (productos.length === 0) {
+          grid.innerHTML = '<p>Aún no hay productos publicados.</p>';
+          return;
+        }
+        grid.innerHTML = productos
+          .map(
+            (p) => `
+          <a class="card" href="detalle.html?id=${p.id}">
+            <img src="${p.miniatura_url}" alt="${p.nombre}" onerror="this.style.opacity=0.3" />
+            <div class="info">
+              <div>${p.nombre}</div>
+              <div class="precio">Bs ${Number(p.precio).toFixed(2)}</div>
+              <div class="categoria">${p.categoria}</div>
+            </div>
+          </a>`
+          )
+          .join('');
+      } catch (err) {
+        grid.innerHTML = '';
+        document.getElementById('mensaje').innerHTML =
+          '<div class="mensaje error">No se pudo cargar el catálogo. Verifique que el backend y sus dependencias estén activos.</div>';
+      }
+    }
+    cargarCatalogo();
+  </script>
+</body>
+</html>

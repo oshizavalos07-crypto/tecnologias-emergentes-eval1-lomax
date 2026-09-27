@@ -1,0 +1,5 @@
+node_modules/
+lambda/thumbnail/function.zip
+floci-data/
+*.log
+.env
