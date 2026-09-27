@@ -10,6 +10,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:
       - PERSISTENCE=1
+      - FLOCI_SERVICES_ECR_URI_STYLE=path
 
   # Representa RDS (MySQL) para esta primera versión local del stack.
   mysql-rds:
