@@ -1,0 +1,32 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lomax-frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lomax-frontend
+  template:
+    metadata:
+      labels:
+        app: lomax-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: localhost:4566/000000000000/us-east-1/lomax-frontend:9e911c9
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lomax-frontend-svc
+spec:
+  type: NodePort
+  selector:
+    app: lomax-frontend
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30081

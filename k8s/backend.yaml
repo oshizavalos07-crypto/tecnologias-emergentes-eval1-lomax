@@ -1,0 +1,64 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lomax-backend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lomax-backend
+  template:
+    metadata:
+      labels:
+        app: lomax-backend
+    spec:
+      hostAliases:
+        - ip: "172.23.0.3"
+          hostnames: ["mysql-rds"]
+        - ip: "172.23.0.4"
+          hostnames: ["floci"]
+      containers:
+        - name: backend
+          image: localhost:4566/000000000000/us-east-1/lomax-backend:67bf2f8
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_HOST
+              value: "mysql-rds"
+            - name: DB_PORT
+              value: "3306"
+            - name: DB_USER
+              value: "lomax_user"
+            - name: DB_PASSWORD
+              value: "lomax_pass"
+            - name: DB_NAME
+              value: "lomax"
+            - name: AWS_ENDPOINT_URL
+              value: "http://floci:4566"
+            - name: AWS_REGION
+              value: "us-east-1"
+            - name: AWS_ACCESS_KEY_ID
+              value: "test"
+            - name: AWS_SECRET_ACCESS_KEY
+              value: "test"
+            - name: BUCKET_ORIGINALES
+              value: "lomax-originales"
+            - name: BUCKET_MINIATURAS
+              value: "lomax-miniaturas"
+            - name: TABLA_ATRIBUTOS
+              value: "ProductoAtributos"
+            - name: LAMBDA_MINIATURA
+              value: "generar-miniatura"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lomax-backend-svc
+spec:
+  type: NodePort
+  selector:
+    app: lomax-backend
+  ports:
+    - port: 3000
+      targetPort: 3000
+      nodePort: 30080

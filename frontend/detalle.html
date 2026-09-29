@@ -7,10 +7,13 @@
 </head>
 <body>
   <header>
-    <strong>Catálogo Lomax</strong>
-    <nav><a href="index.html">Ver catálogo</a></nav>
+    <strong>🛒 Catálogo Lomax</strong>
+    <nav><a href="registro.html">+ Registrar producto</a></nav>
   </header>
-  <main id="contenido">Cargando…</main>
+  <main>
+    <a class="volver" href="index.html">← Volver al catálogo</a>
+    <div id="contenido">Cargando…</div>
+  </main>
 
   <script src="js/api.js"></script>
   <script>
@@ -29,11 +32,12 @@
           .join('');
 
         contenido.innerHTML = `
-          <div class="card" style="max-width:420px">
+          <div class="card detalle-card">
             <img src="/api/productos/${p.id}/imagen" alt="${p.nombre}" onerror="this.style.opacity=0.3" />
             <div class="info">
-              <h2>${p.nombre}</h2>
-              <div class="categoria">${p.categoria} · código ${p.codigo}</div>
+              <h2 style="margin:0 0 0.25rem">${p.nombre}</h2>
+              <div class="categoria">${p.categoria}</div>
+              <p style="color:#64748b;font-size:0.85rem;margin:0.5rem 0">código ${p.codigo}</p>
               <p>${p.descripcion || ''}</p>
               <div class="precio">Bs ${Number(p.precio).toFixed(2)}</div>
               <p class="estado-${p.estado.toLowerCase()}">Estado: ${p.estado}</p>

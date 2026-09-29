@@ -12,6 +12,20 @@ services:
       - PERSISTENCE=1
       - FLOCI_SERVICES_ECR_URI_STYLE=path
 
+
+  floci-ui:
+    image: floci/floci-ui:latest
+    container_name: lomax-floci-ui
+    ports:
+      - "4500:4500"
+    environment:
+      - FLOCI_ENDPOINT=http://floci:4566
+      - AWS_REGION=us-east-1
+      - AWS_ACCESS_KEY_ID=test
+      - AWS_SECRET_ACCESS_KEY=test
+      - PORT=4500
+    depends_on:
+      - floci
   # Representa RDS (MySQL) para esta primera versión local del stack.
   mysql-rds:
     image: mysql:8.0
