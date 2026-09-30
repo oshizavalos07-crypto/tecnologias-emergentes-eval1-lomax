@@ -1,125 +1,142 @@
-# Catálogo Lomax SA — Stack local (Etapas 2 a 5)
+# Catálogo Lomax SA — Práctica de Tecnologías Emergentes I
 
-Este proyecto levanta, en tu propia máquina, todo lo que la evaluación pide **hasta
-la Etapa 5** (persistencia RDS+DynamoDB, S3+Lambda, backend con los 7 endpoints,
-frontend con las 3 vistas). ECR (Etapa 6) y EKS (Etapa 7) no están incluidos
-todavía — los hacemos después, cuando confirmes que esto corre bien.
+Proyecto individual (Andrew) para la Primera Evaluación: sistema de registro y
+consulta de productos para "Lomax SA", cubriendo las 7 etapas de la guía sobre
+un entorno local con **Floci** (emulador de AWS).
 
-No se ha ejecutado ni probado en un entorno real todavía (aquí no tengo Docker
-disponible), así que es posible que algún comando necesite un ajuste menor la
-primera vez. Si algo falla, copia el mensaje de error y lo arreglamos.
+## Estado: las 7 etapas están completas y verificadas
+
+| Etapa | Qué es | Estado |
+|---|---|---|
+| 1 | Diagrama de arquitectura | Ver `evidencias/E1-arquitectura/` |
+| 2 | RDS (MySQL) + DynamoDB | ✅ Funcionando |
+| 3 | S3 + Lambda (miniaturas) | ✅ Funcionando |
+| 4 | Backend / API (7 endpoints) | ✅ Funcionando |
+| 5 | Frontend (catálogo, registro, detalle) | ✅ Funcionando, 21 productos publicados |
+| 6 | ECR (imágenes versionadas por commit) | ✅ Funcionando |
+| 7 | EKS (clúster real k3s vía Floci) | ✅ Funcionando: escalado 1→3, autorrecuperación, persistencia verificada |
 
 ## Qué representa cada pieza
 
-| Servicio en la práctica | Cómo está implementado aquí |
+| Servicio de la práctica | Cómo está implementado |
 |---|---|
 | RDS (MySQL) | Contenedor `mysql-rds` (MySQL 8 real) |
-| DynamoDB, S3, Lambda | Contenedor `floci` (emulador local de AWS, puerto 4566) |
-| Backend / API | Contenedor `backend` (Node.js + Express) |
-| Frontend | Contenedor `frontend` (archivos estáticos servidos con nginx) |
-| Reverse proxy | Contenedor `proxy` (nginx), único punto de entrada en `http://localhost:8080` |
+| DynamoDB, S3, Lambda, ECR, EKS | Contenedor `floci` (emulador de AWS, puerto 4566) |
+| Panel visual de Floci | Contenedor `floci-ui`, http://localhost:4500 |
+| Backend / API | Imagen propia (Node.js + Express), corre como Pod en EKS |
+| Frontend | Imagen propia (nginx + HTML/CSS/JS estático), corre como Pod en EKS |
+| Reverse proxy | Contenedor `proxy` (nginx) → único punto de entrada, `http://localhost:8080`, reenvía a los Pods del clúster EKS |
 
 ## 1. Instalar lo necesario (una sola vez)
 
-1. **Docker Desktop** (incluye Docker Compose): https://www.docker.com/products/docker-desktop/
-2. **AWS CLI v2**: https://awscli.amazonaws.com/AWSCLIV2.msi
-3. **Node.js 20** (solo para que el script empaquete la Lambda): https://nodejs.org/
-4. Verifica en PowerShell:
-   ```powershell
-   docker --version
-   aws --version
-   node --version
-   ```
+- **Docker Desktop**: https://www.docker.com/products/docker-desktop/
+- **AWS CLI v2**: https://awscli.amazonaws.com/AWSCLIV2.msi
+- **kubectl**: `winget install Kubernetes.kubectl`
+- **Node.js 20+**: https://nodejs.org/
+- **Git**: `winget install Git.Git`
 
-## 2. Descomprimir el proyecto y abrirlo en VS Code
+Verifica: `docker --version`, `aws --version`, `kubectl version --client`, `node --version`, `git --version`.
 
-1. Descomprime el ZIP, por ejemplo en `Descargas\practica-lomax`.
-2. Abre PowerShell y entra a la carpeta:
-   ```powershell
-   cd $HOME\Downloads\practica-lomax
-   code .
-   ```
-
-## 3. Levantar los contenedores
+## 2. Levantar el stack base (Docker Compose)
 
 ```powershell
+cd practica-lomax
 docker compose build
 docker compose up -d
-docker compose ps
+docker compose ps    # espera a que lomax-mysql y lomax-floci digan "healthy"
 ```
 
-Espera hasta que `lomax-mysql` aparezca como `healthy` (puede tardar 20-30
-segundos la primera vez, porque MySQL está cargando `db/init.sql`).
-
-## 4. Crear los recursos "AWS" dentro de Floci (S3, DynamoDB, Lambda)
-
-Esto solo se hace una vez (o cada vez que borres los datos de Floci):
+## 3. Crear los recursos "AWS" en Floci (S3, DynamoDB, Lambda)
 
 ```powershell
 .\scripts\init-floci.ps1
 ```
 
-Este script espera a que Floci esté listo, crea los dos buckets S3
-(`lomax-originales`, `lomax-miniaturas`), la tabla DynamoDB
-(`ProductoAtributos`) y empaqueta + despliega la función Lambda
-(`generar-miniatura`).
+Crea los buckets `lomax-originales`/`lomax-miniaturas`, la tabla `ProductoAtributos`
+y despliega la función Lambda `generar-miniatura`.
 
-## 5. Abrir la aplicación
-
-http://localhost:8080
-
-- Catálogo: `http://localhost:8080/`
-- Registrar producto: `http://localhost:8080/registro.html`
-- La API queda accesible también en `http://localhost:8080/api/...` y,
-  directo (sin proxy), en `http://localhost:3000/...`
-
-## 6. Ver lo que hay "por dentro" (para explicar/defender la práctica)
-
-- **MySQL (RDS):** conéctate con cualquier cliente MySQL (o la extensión de
-  VS Code) a `localhost:3307`, usuario `lomax_user`, contraseña `lomax_pass`,
-  base `lomax`. O desde PowerShell:
-  ```powershell
-  docker exec -it lomax-mysql mysql -u lomax_user -plomax_pass lomax
-  ```
-- **DynamoDB (vía Floci):**
-  ```powershell
-  aws --endpoint-url http://localhost:4566 dynamodb scan --table-name ProductoAtributos
-  ```
-- **S3 (vía Floci):**
-  ```powershell
-  aws --endpoint-url http://localhost:4566 s3 ls s3://lomax-originales
-  aws --endpoint-url http://localhost:4566 s3 ls s3://lomax-miniaturas
-  ```
-- **Logs de cada contenedor:**
-  ```powershell
-  docker compose logs -f backend
-  docker compose logs -f floci
-  ```
-
-## 7. Apagar todo
+## 4. (Opcional) Cargar productos de prueba en bloque
 
 ```powershell
-docker compose down
+cd scripts
+npm install
+node seed-productos.js 18
 ```
-Agrega `-v` si además quieres borrar los datos de MySQL (`docker compose down -v`).
+
+Genera productos con imagen sintética, repartidos en las 3 categorías, para
+llegar rápido a los 20+ que pide la guía. También puedes usar el formulario
+normal (`registro.html`) para registrar a mano.
+
+## 5. Etapa 6 — Publicar en ECR
+
+Resumen (detalle completo con comandos en `evidencias/E6-ecr/`):
+
+```powershell
+git commit -am "version a publicar"
+$version = (git rev-parse --short HEAD)
+
+aws --endpoint-url http://localhost:4566 ecr create-repository --repository-name lomax-backend
+aws --endpoint-url http://localhost:4566 ecr create-repository --repository-name lomax-frontend
+# login + tag + push con $version como tag (ver script/evidencia)
+```
+
+## 6. Etapa 7 — Desplegar en EKS
+
+Resumen (detalle completo en `evidencias/E7-eks/` y manifiestos en `k8s/`):
+
+```powershell
+aws --endpoint-url http://localhost:4566 eks create-cluster --name lomax-cluster \
+  --role-arn arn:aws:iam::000000000000:role/eks-role \
+  --resources-vpc-config subnetIds=[],securityGroupIds=[] --kubernetes-version 1.31
+
+aws --endpoint-url http://localhost:4566 eks update-kubeconfig --name lomax-cluster
+
+kubectl apply -f k8s\backend.yaml
+kubectl apply -f k8s\frontend.yaml
+kubectl scale deployment lomax-backend --replicas=3
+```
+
+> Nota: Floci exige una credencial IAM real (no `test`/`test`) para autenticar
+> `kubectl`. Se creó un usuario IAM `lomax-eks-admin` con `aws iam create-access-key`
+> y se guardó de forma permanente con `aws configure set`.
+
+> Nota de red: como "mysql-rds" y "floci" son contenedores propios de Docker
+> Compose (no servicios nativos de Floci), los Pods no podían resolver esos
+> nombres por DNS. Se solucionó agregando `hostAliases` en el manifiesto del
+> backend (`k8s/backend.yaml`) con las IPs reales de esos contenedores.
+
+## 7. Abrir la aplicación
+
+**http://localhost:8080** (siempre, sin importar si estás usando la versión de
+`docker-compose` o la de EKS — el proxy reenvía a lo que esté activo).
+
+Panel visual de Floci (S3, DynamoDB, Lambda, ECR, EKS): **http://localhost:4500**
+
+## 8. Ver lo que hay "por dentro" (para la defensa)
+
+```powershell
+# RDS
+docker exec lomax-mysql mysql -u lomax_user -plomax_pass -e "SELECT * FROM lomax.producto;"
+
+# DynamoDB
+aws --endpoint-url http://localhost:4566 dynamodb scan --table-name ProductoAtributos
+
+# S3
+aws --endpoint-url http://localhost:4566 s3 ls s3://lomax-originales --recursive
+aws --endpoint-url http://localhost:4566 s3 ls s3://lomax-miniaturas --recursive
+
+# ECR
+aws --endpoint-url http://localhost:4566 ecr describe-images --repository-name lomax-backend
+
+# EKS
+kubectl get pods -o wide
+kubectl get deployment lomax-backend
+```
+
+## 9. Apagar todo
+
+```powershell
+docker compose down          # agrega -v para borrar también los datos de MySQL
+```
 
 ## Estructura del proyecto
-
-```
-practica-lomax/
-├─ docker-compose.yml
-├─ db/init.sql              -> esquema RDS (categoria, producto)
-├─ backend/                 -> API Node/Express (7 endpoints de la guía)
-├─ lambda/thumbnail/         -> función Lambda que genera la miniatura
-├─ frontend/                 -> catálogo, registro y detalle (HTML/CSS/JS)
-├─ proxy/nginx.conf          -> enruta / al frontend y /api al backend
-└─ scripts/init-floci.ps1    -> crea buckets, tabla y Lambda en Floci
-```
-
-## Pendiente para las siguientes etapas (no incluido aún)
-
-- Etapa 6: publicar las imágenes de `backend` y `frontend` en ECR (Floci también
-  lo emula).
-- Etapa 7: desplegar en un clúster EKS (o el que provea Floci).
-- Diagrama de arquitectura (Etapa 1) y demás entregables en PDF: los preparamos
-  después, como pediste.
